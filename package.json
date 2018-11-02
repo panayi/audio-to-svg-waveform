@@ -45,7 +45,8 @@
     "mocha": "^3.5.0"
   },
   "dependencies": {
+    "lodash.max": "^4.0.1",
     "svgo": "^1.0.3",
-    "web-audio-api": "^0.2.2"
+    "waveform-node": "^0.3.1"
   }
 }

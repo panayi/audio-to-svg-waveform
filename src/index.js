@@ -1,19 +1,11 @@
-const AudioSVGWaveform = require('./audio-waveform-svg-path/index.js');
-
 const SVGO = require('svgo');
+const waveform = require('waveform-node');
 const fs = require('fs');
+const max = require('lodash.max');
 const Readable = require('stream').Readable;
 const color = process.env.SVG_STROKE || '#000';
 
 const svgo = new SVGO(/*{ custom config object }*/);
-
-// put the path into a fake svg
-function buildSVG(path) {
-  return new Promise((resolve) => {
-    const tempsvg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg viewBox="0 0 200 81" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;"><g transform="matrix(0.0334504,0,0,81,0,40.5)"><path d="${path}" fill="none" stroke="${color}" height="100%" width="100%" x="0" y="0" /></g></svg>`;
-    resolve(tempsvg);
-  });
-}
 
 // only create the gzipped output - no other temp files created!
 function writeStream(fileout, result) {
@@ -28,17 +20,44 @@ function writeStream(fileout, result) {
   });
 }
 
+function buildSVG(filepath) {
+  function svgPath(peaks) {
+    const content = peaks.map((peak, i) => {
+        let bucketSVGWidth = 1;
+        let bucketSVGHeight = peak * 100.0;
+        return `<rect
+            x="${bucketSVGWidth * i}"
+            y="${ (100 - bucketSVGHeight) / 2.0}"
+            width="${bucketSVGWidth}"
+            height="${bucketSVGHeight}" />`;
+    }).join('')
+
+    const maxPeak = max(peaks);
+
+    return `
+      <svg viewBox="0 0 ${peaks.length} ${maxPeak * 100}" xmlns="http://www.w3.org/2000/svg">
+        ${content}
+      </svg>
+    `;
+  }
+
+  return new Promise((resolve, reject) => {
+    waveform.getWaveForm(filepath, { }, (error, peaks) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(svgPath(peaks));
+      }
+    });
+  });
+}
+
 function audioToSvgWaveform(audioin, fileout) {
   return new Promise((resolve, reject) => {
     try {
-      const file = fs.readFileSync(audioin);
-      const filebuf = new Uint8Array(file).buffer;
-      const trackWaveform = AudioSVGWaveform(filebuf);
-
       const newfile = fileout || `${audioin}.svg`;
 
-      trackWaveform
-        .then(buildSVG)
+      buildSVG(audioin)
         .then(data => svgo.optimize(data))
         .then(result => writeStream(newfile, result))
         .then(resolve)
