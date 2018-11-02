@@ -1,7 +1,6 @@
 const AudioSVGWaveform = require('./audio-waveform-svg-path/index.js');
 
 const SVGO = require('svgo');
-const zlib = require('zlib');
 const fs = require('fs');
 const Readable = require('stream').Readable;
 const color = process.env.SVG_STROKE || '#000';
@@ -23,7 +22,6 @@ function writeStream(fileout, result) {
     data.push(result.data);
     data.push(null);
     data
-      .pipe(zlib.createGzip())
       .pipe(fs.createWriteStream(fileout))
       .on('finish', () => resolve('Done'))
       .on('error', err => reject(err));
@@ -37,7 +35,7 @@ function audioToSvgWaveform(audioin, fileout) {
       const filebuf = new Uint8Array(file).buffer;
       const trackWaveform = AudioSVGWaveform(filebuf);
 
-      const newfile = fileout || `${audioin}.svg.gz`;
+      const newfile = fileout || `${audioin}.svg`;
 
       trackWaveform
         .then(buildSVG)
